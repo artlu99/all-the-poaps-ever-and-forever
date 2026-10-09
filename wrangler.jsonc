@@ -6,6 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./public",
+    "binding": "ASSETS",
     "not_found_handling": "404-page",
     // Worker runs first so "/" and "/p/*" can inject OG/X meta with absolute
     // URLs; static assets fall through to the ASSETS binding in src/index.ts.
@@ -13,29 +14,23 @@
     // glob arrays like ["/", "/p/*"] to keep assets on the edge path.)
     "run_worker_first": true
   },
-  "unsafe": {
+  "ratelimits": [
     // per-IP rate limits (sliding window), enforced in src/index.ts.
     // API is strict (one collection per screen); artwork is generous
     // because swiping a whale collection lazy-loads dozens of images.
-    // ("unsafe" is just the pass-through escape hatch wrangler 3 needs
-    // for ratelimit bindings — wrangler 4 accepts them at top level.)
-    "bindings": [
-      {
-        "type": "ratelimit",
-        "name": "RATE_LIMIT_API",
-        "algorithm": "sliding_window",
-        "limit": 100,
-        "period": 60
-      },
-      {
-        "type": "ratelimit",
-        "name": "RATE_LIMIT_ART",
-        "algorithm": "sliding_window",
-        "limit": 600,
-        "period": 60
-      }
-    ]
-  },
+    // namespace_id is an arbitrary unique label required by the API;
+    // limits live under "simple" (period must be 10 or 60 seconds).
+    {
+      "name": "RATE_LIMIT_API",
+      "namespace_id": "1001",
+      "simple": { "limit": 100, "period": 60 }
+    },
+    {
+      "name": "RATE_LIMIT_ART",
+      "namespace_id": "1002",
+      "simple": { "limit": 600, "period": 60 }
+    }
+  ],
   "vars": {
     "ZIP_URL": "https://downloads.poaparchive.com/archive.zip",
     "RPC_URLS": "https://evm.stupidtech.net/v1/1,https://ethereum-rpc.publicnode.com,https://eth.llamarpc.com,https://eth.drpc.org"
