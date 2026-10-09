@@ -1,0 +1,22 @@
+node_modules/
+.dev.vars
+
+# archive data — multi-GB, and exceeds GitHub's 100 MB per-file push limit
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+archive.zip
+
+# generated output (test bundles, zip central-directory index)
+scripts/out/
+
+# wrangler local state
+.wrangler/
+
+# editor / os noise
+*.swp
+.DS_Store
+
+# lock files - regenerate locally
+package-lock.json
+bun.lock

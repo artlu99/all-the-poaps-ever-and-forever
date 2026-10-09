@@ -1,0 +1,24 @@
+{
+  "name": "poaps",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:bun": "bun run src/bun.ts",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/*.test.mjs",
+    "fetch:sqlite": "node scripts/zip-peek.mjs && node scripts/fetch-sqlite.mjs",
+    "build:db": "node scripts/slim-for-turso.mjs"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "hono": "^4.13.12"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^11.10.0",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.147.0"
+  }
+}

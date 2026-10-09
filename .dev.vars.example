@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local `wrangler dev`. Secrets only — public vars
+# (ZIP_URL, RPC_URLS) live in wrangler.jsonc and are merged automatically.
+SQLITE_REST_URL=https://sqlite-rest.your-vps.example
+SQLITE_REST_TOKEN=<bearer JWT accepted by that instance>
