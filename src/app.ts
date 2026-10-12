@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 import { isAddress, isEnsName, resolveEns, reverseEns } from './ens';
-import { injectOg, page404, page500 } from './pages';
+import { injectOg, page404, page500, playerShell } from './pages';
 import type { POAPStore } from './store';
 import { extractZipEntry, isWebp, type Inflater, type RangeFetcher } from './zip';
 
@@ -23,6 +23,10 @@ export interface AppDeps {
 }
 
 const MAX_TOKENS = 4000; // API cap per collection; whales get truncated
+const PLAYER_HEADERS = {
+  'Content-Security-Policy': "frame-ancestors 'self' https://x.com https://twitter.com https://platform.twitter.com",
+  'Cache-Control': 'no-store',
+};
 const svgPlaceholder = (dropId: number) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a2f45"/><stop offset="1" stop-color="#171b2c"/></linearGradient></defs><circle cx="100" cy="100" r="96" fill="url(#g)" stroke="#3b4266" stroke-width="2"/><text x="100" y="112" font-family="system-ui" font-size="30" fill="#5a6390" text-anchor="middle">#${dropId}</text></svg>`;
 
@@ -36,8 +40,21 @@ function softDecode(s: string): string {
   }
 }
 
+/** Lowercased address or ENS name from a path segment, or null. */
+function parseOwner(param: string): string | null {
+  const raw = softDecode(param).trim();
+  return isAddress(raw) || isEnsName(raw) ? raw.toLowerCase() : null;
+}
+
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
+
+  // The player runs in a sandboxed X iframe (opaque origin). Public GETs must
+  // be readable from there; images already load without CORS.
+  app.use('/api/*', async (c, next) => {
+    await next();
+    c.res.headers.set('Access-Control-Allow-Origin', '*');
+  });
 
   app.get('/healthz', async (c) => {
     const snapshot = deps.snapshotDate ?? (await deps.store.getSnapshotDate());
@@ -47,10 +64,18 @@ export function createApp(deps: AppDeps): Hono {
   // Per-wallet SPA shell with X/OG embed tags. Bots ignore #/ fragments, so
   // shareable links use this path form; the SPA boots from either.
   app.get('/p/:owner', async (c) => {
-    const raw = softDecode(c.req.param('owner')).trim();
-    const owner = isAddress(raw) ? raw.toLowerCase() : isEnsName(raw) ? raw.toLowerCase() : null;
+    const owner = parseOwner(c.req.param('owner'));
     const html = injectOg(await deps.getShell(), new URL(c.req.url).origin, owner ?? undefined);
     return c.html(html, 200, owner ? { 'Cache-Control': 'public, max-age=600' } : {});
+  });
+
+  // Player card iframe. Framable from X; no login. /play is the homepage card target.
+  app.get('/play', (c) => c.html(playerShell(), 200, PLAYER_HEADERS));
+
+  app.get('/play/:owner', (c) => {
+    const owner = parseOwner(c.req.param('owner'));
+    if (!owner) return c.notFound();
+    return c.html(playerShell(owner), 200, PLAYER_HEADERS);
   });
 
   // Collection lookup: /api/collection/0xabc… or /api/collection/vitalik.eth

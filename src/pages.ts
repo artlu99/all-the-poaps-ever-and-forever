@@ -33,18 +33,49 @@ export const page500 = shell(
 
 const DEFAULT_OG = { title: 'poaps', desc: 'The archival POAP explorer — paste any address or ENS name and swipe through its badges.' };
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
 /**
- * Replace the {{ORIGIN}} / {{TWITTER_TITLE}} / {{TWITTER_DESC}} placeholders
- * in public/index.html. Bots (X above all) require absolute image URLs and
- * ignore URL fragments, so per-wallet embeds need the /p/:owner path form.
+ * Replace the {{ORIGIN}} / {{PLAYER_URL}} / {{TWITTER_TITLE}} / {{TWITTER_DESC}}
+ * placeholders in public/index.html. Bots (X above all) require absolute
+ * image URLs and ignore URL fragments, so per-wallet embeds need the
+ * /p/:owner path form. The player iframe is /play or /play/:owner.
+ * `owner` is already lowercased by callers.
  */
 export function injectOg(html: string, origin: string, owner?: string): string {
   const og = owner
     ? { title: `${owner} on poaps`, desc: `Explore ${owner}'s POAP collection — the archival explorer for the final POAP snapshot.` }
     : DEFAULT_OG;
+  const playerUrl = owner ? `${origin}/play/${owner}` : `${origin}/play`;
   return html
     .replaceAll('{{ORIGIN}}', origin)
+    .replaceAll('{{PLAYER_URL}}', playerUrl)
     .replaceAll('{{TWITTER_TITLE}}', og.title)
     .replaceAll('{{TWITTER_DESC}}', og.desc)
     .replaceAll('<title>poaps</title>', `<title>${og.title}</title>`);
+}
+
+/** Framable player document. X iframes this; the module fills #player. */
+export function playerShell(owner?: string): string {
+  const ownerAttr = owner === undefined ? '' : ` data-owner="${escapeHtml(owner)}"`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>poaps</title>
+<link rel="stylesheet" href="/play.css">
+</head>
+<body>
+<div id="player"${ownerAttr}></div>
+<script type="module" src="/play.js"></script>
+</body>
+</html>`;
 }

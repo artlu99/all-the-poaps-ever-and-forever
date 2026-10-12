@@ -48,6 +48,11 @@ function route() {
 }
 addEventListener('hashchange', route);
 
+function go(hash) {
+  history.pushState({ poaps: 1 }, '', hash);
+  route();
+}
+
 function showHome() {
   grid.hidden = true; home.hidden = false;
   els.homeError.hidden = true;
@@ -410,7 +415,7 @@ $('lookup').addEventListener('submit', (e) => {
     els.homeError.textContent = 'that doesn’t look like an address or ENS name';
     return;
   }
-  location.hash = `/${encodeURIComponent(v)}`;
+  go(`/${encodeURIComponent(v)}`);
 });
 els.paste.addEventListener('click', async () => {
   try {
@@ -423,7 +428,7 @@ els.paste.addEventListener('click', async () => {
     toast('clipboard unavailable — paste manually');
   }
 });
-els.back.addEventListener('click', () => { history.length > 1 ? history.back() : (location.hash = ''); });
+els.back.addEventListener('click', () => { history.state?.poaps ? history.back() : location.assign('/'); });
 els.whoAddr.addEventListener('click', async () => {
   if (!collection) return;
   try { await navigator.clipboard.writeText(collection.address); toast('address copied'); }
@@ -466,7 +471,7 @@ function renderRecent() {
     const n = document.createElement('span');
     n.className = 'n'; n.textContent = r.count;
     chip.append(label, n);
-    chip.addEventListener('click', () => (location.hash = `/${encodeURIComponent(r.input)}`));
+    chip.addEventListener('click', () => go(`/${encodeURIComponent(r.input)}`));
     els.recent.appendChild(chip);
   }
 }

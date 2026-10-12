@@ -91,9 +91,9 @@ has exactly one producer:
 
 | File | Size | Produced by | What it is |
 |---|---|---|---|
-| `poap.sqlite` | ~1.5 GB | `npm run fetch:sqlite` | the archive's full snapshot DB, downloaded as just the `dist/poap.sqlite` ZIP member |
-| `poap-slim.sqlite` | ~910 MB | `npm run build:db` | the serving DB — what Bun opens directly and what you import into Turso / serve with sqlite-rest |
-| `scripts/out/zip-entries.json` | ~9 MB | `npm run fetch:sqlite` (first half) | the ZIP's parsed central directory; `build:db` reads it for the artwork byte offsets, so it must exist before slimming |
+| `poap.sqlite` | ~1.5 GB | `bun run fetch:sqlite` | the archive's full snapshot DB, downloaded as just the `dist/poap.sqlite` ZIP member |
+| `poap-slim.sqlite` | ~910 MB | `bun run build:db` | the serving DB — what Bun opens directly and what you import into Turso / serve with sqlite-rest |
+| `scripts/out/zip-entries.json` | ~9 MB | `bun run fetch:sqlite` (first half) | the ZIP's parsed central directory; `build:db` reads it for the artwork byte offsets, so it must exist before slimming |
 | `archive.zip` | 15.9 GB | direct download, optional | the full archive; needed only to serve artwork from local disk |
 
 ```
@@ -105,30 +105,30 @@ poap.sqlite ──▶ poap-slim.sqlite       drops + tokens(+covering index) + a
                                         + snapshot_metadata + `collection` VIEW
 ```
 
-- `npm run fetch:sqlite` runs `scripts/zip-peek.mjs` then
+- `bun run fetch:sqlite` runs `scripts/zip-peek.mjs` then
   `scripts/fetch-sqlite.mjs`: zip-peek reads only the ZIP's last 64 KB and
   central directory over ranged requests to index every member;
   fetch-sqlite then downloads exactly the `dist/poap.sqlite` member and
   inflates it. Both shell out to `curl`.
-- `npm run build:db` (`scripts/slim-for-turso.mjs`) refuses to overwrite an
+- `bun run build:db` (`scripts/slim-for-turso.mjs`) refuses to overwrite an
   existing `poap-slim.sqlite` — delete the file to rebuild. If `archive.zip`
   sits next to it, the build self-checks sampled artwork offsets against the
   real ZIP.
 - Already have `archive.zip` locally? Skip the 609 MB download:
-  `unzip archive.zip dist/poap.sqlite`, then `node scripts/zip-peek.mjs`
-  (cheap — central directory only) and `npm run build:db`.
+  `unzip archive.zip dist/poap.sqlite`, then `bun scripts/zip-peek.mjs`
+  (cheap — central directory only) and `bun run build:db`.
 - Disk usage: ~2.4 GB for the required path, +15.9 GB with the optional ZIP.
 
 ## Local development (Bun path)
 
 ```sh
-npm install
-npm run fetch:sqlite   # → poap.sqlite      (~609 MB download, ~1.5 GB file)
-npm run build:db       # → poap-slim.sqlite (~910 MB)
+bun install
+bun run fetch:sqlite   # → poap.sqlite      (~609 MB download, ~1.5 GB file)
+bun run build:db       # → poap-slim.sqlite (~910 MB)
 bun run src/bun.ts     # http://localhost:8787
 ```
 
-`npm run dev:bun` is a shortcut for the last step. See **Data files** above
+`bun run dev:bun` is a shortcut for the last step. See **Data files** above
 for exactly what each command produces and where the bytes come from. Place
 the full `archive.zip` (15.9 GB, optional) next to `poap-slim.sqlite` to
 serve artwork from local disk — worth doing for long-term preservation,
@@ -156,8 +156,8 @@ up.
 2. **Configure the Worker secrets**:
 
    ```sh
-   npx wrangler secret put SQLITE_REST_URL     # your instance's base URL
-   npx wrangler secret put SQLITE_REST_TOKEN   # the bearer JWT
+   bunx wrangler secret put SQLITE_REST_URL     # your instance's base URL
+   bunx wrangler secret put SQLITE_REST_TOKEN   # the bearer JWT
    ```
 
    Prefer Turso instead? `turso db create poaps --from-file poap-slim.sqlite`,
@@ -167,7 +167,7 @@ up.
 3. **Deploy**:
 
    ```sh
-   npx wrangler deploy
+   bunx wrangler deploy
    ```
 
 ## Configuration
@@ -253,28 +253,42 @@ The built-in bindings above make that optional, not required.
 
 ## X / OpenGraph embeds
 
-X's crawler **drops URL fragments**, so `#/vitalik.eth` links unfurl as the
-generic homepage — shareable links use the path form instead:
+Shared links are [X Player Cards](https://developer.x.com/en/docs/x-for-websites/cards/overview/player-card):
+the post embeds a live 480×480 view of that wallet's collection. X's crawler
+does not run JavaScript and drops URL fragments, so the share URL is the path
+form and the tags are server-rendered:
 
-- `GET /p/:owner` serves the SPA with per-wallet embed tags
-  (`twitter:title` = "vitalik.eth on poaps"; the app boots from either form)
-- the Share button emits `/p/…` URLs
-- `og:image` / `twitter:image` point at `/og.png` (1200×600,
-  `summary_large_image` card); `{{ORIGIN}}` placeholders in `index.html` are
-  replaced with the request origin at serve time, so image URLs are always
-  absolute as bots require
+- `GET /p/:owner` is the URL the Share button copies. Its HTML includes
+  `twitter:card=player` and `twitter:player` pointing at `{origin}/play/{owner}`
+  (480×480). `twitter:image` is `{origin}/og.png`, the fallback where players
+  don't render.
+- `GET /play/:owner` is the page X iframes. It is framable
+  (`frame-ancestors` allows `https://x.com`, `https://twitter.com`, and
+  `https://platform.twitter.com`; no `X-Frame-Options`). The collection loads
+  with no sign-in. `GET /play` is the same card with a lookup field, used when
+  the homepage itself is shared.
+- `{{ORIGIN}}` and `{{PLAYER_URL}}` in `index.html` are replaced at serve time,
+  so the crawler sees absolute URLs.
 - on Workers, `assets.run_worker_first` routes everything through the Worker,
-  which falls through to the ASSETS binding for static files
+  which falls through to the ASSETS binding for static files.
 
-To regenerate the card after a design change: edit `public/og.html` (it pulls
-real badge artwork from `/a/…`), open it at 1200×600, screenshot to
-`public/og.png`. Validate live embeds after deploying by posting any `/p/…`
-link in an X draft and checking the preview.
+`public/harness.html` iframes `/play/vitalik.eth` at 440×480 with the sandbox
+X-like cards use. Check the tags locally with:
+
+```sh
+curl -s http://localhost:8787/p/vitalik.eth | grep -E 'twitter:(card|player)'
+```
+
+X caches card metadata. After changing tags, share `?v=2` (or another new query)
+so the crawler fetches again. Validate a real post in X's card validator.
+
+To regenerate the fallback image: edit `public/og.html` (it pulls real badge
+artwork from `/a/…`), open it at 1200×600, screenshot to `public/og.png`.
 
 ## Tests
 
 ```sh
-npm test
+bun run test
 ```
 
 Known-vector tests for the ENS math (`tests/ens.test.mjs`): keccak-256
@@ -292,7 +306,7 @@ what make that loud.
   can still change even though POAP can't.
 - The API caps collections at 4,000 tokens per response; `truncated: true`
   says when. The UI shows the full total with a "showing first N" note.
-- `package-lock.json` is gitignored; `npm install` resolves fresh.
+- `bun.lock` is gitignored; `bun install` resolves fresh.
 
 ## License
 

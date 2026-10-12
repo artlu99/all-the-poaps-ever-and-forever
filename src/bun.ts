@@ -95,7 +95,7 @@ Bun.serve({
     const url = new URL(req.url);
 
     // static files from public/ (path traversal safe); dynamic prefixes go to Hono
-    const isDynamic = url.pathname.startsWith('/api/') || url.pathname.startsWith('/a/') || url.pathname.startsWith('/p/') || url.pathname === '/healthz';
+    const isDynamic = url.pathname.startsWith('/api/') || url.pathname.startsWith('/a/') || url.pathname.startsWith('/p/') || url.pathname === '/play' || url.pathname.startsWith('/play/') || url.pathname === '/healthz';
     if (req.method === 'GET' && !isDynamic) {
       const path = url.pathname === '/' ? '/index.html' : url.pathname;
       const safe = !path.split('/').some((seg) => seg === '..' || seg === '%2e%2e');
