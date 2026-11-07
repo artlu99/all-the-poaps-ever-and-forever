@@ -39,17 +39,18 @@ function safeDecode(s) {
 }
 function route() {
   // two link forms: path (/p/vitalik.eth — shareable, bot-crawlable) and
-  // hash (#/vitalik.eth — in-app navigation without reloads)
-  const pm = /^\/p\/(.+)$/.exec(location.pathname);
+  // hash (#/vitalik.eth — in-app navigation without reloads). Hash wins so a
+  // search started from a shared /p/ page doesn't stay on the old name.
   const h = safeDecode(location.hash.replace(/^#\/?/, ''));
-  const input = (pm ? safeDecode(pm[1]) : '') || h;
+  const pm = /^\/p\/(.+)$/.exec(location.pathname);
+  const input = h || (pm ? safeDecode(pm[1]) : '');
   if (input) load(input.trim());
   else showHome();
 }
 addEventListener('hashchange', route);
 
-function go(hash) {
-  history.pushState({ poaps: 1 }, '', hash);
+function go(owner) {
+  history.pushState({ poaps: 1 }, '', `/#/${encodeURIComponent(owner)}`);
   route();
 }
 
@@ -307,7 +308,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft') goPage(page - 1);
   else if (e.key === 'ArrowUp') { e.preventDefault(); zoomTo(zoom + 1); }
   else if (e.key === 'ArrowDown') { e.preventDefault(); zoomTo(zoom - 1); }
-  else if (e.key === 'Escape') showHome(), history.replaceState(null, '', location.pathname);
+  else if (e.key === 'Escape') showHome(), history.replaceState(null, '', '/');
 });
 let wheelCooldown = 0;
 pager.addEventListener('wheel', (e) => {
@@ -415,7 +416,7 @@ $('lookup').addEventListener('submit', (e) => {
     els.homeError.textContent = 'that doesn’t look like an address or ENS name';
     return;
   }
-  go(`/${encodeURIComponent(v)}`);
+  go(v);
 });
 els.paste.addEventListener('click', async () => {
   try {
@@ -471,7 +472,7 @@ function renderRecent() {
     const n = document.createElement('span');
     n.className = 'n'; n.textContent = r.count;
     chip.append(label, n);
-    chip.addEventListener('click', () => go(`/${encodeURIComponent(r.input)}`));
+    chip.addEventListener('click', () => go(r.input));
     els.recent.appendChild(chip);
   }
 }

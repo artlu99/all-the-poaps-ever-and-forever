@@ -16,6 +16,7 @@ scripts/out/
 # editor / os noise
 *.swp
 .DS_Store
+*.tsbuildinfo
 
 # lock files - regenerate locally
 package-lock.json

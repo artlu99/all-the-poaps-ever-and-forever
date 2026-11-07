@@ -24,7 +24,7 @@ function namehash(name: string): Uint8Array {
   return node;
 }
 
-// ENSIP-1 reference vectors live in tests/ens.test.mjs
+// ENSIP-1 reference vectors live in tests/ens.test.ts
 export const testables = {
   namehashHex: (name: string): string => hex(namehash(name)),
 };

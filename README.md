@@ -291,7 +291,7 @@ artwork from `/a/…`), open it at 1200×600, screenshot to `public/og.png`.
 bun run test
 ```
 
-Known-vector tests for the ENS math (`tests/ens.test.mjs`): keccak-256
+Known-vector tests for the ENS math (`tests/ens.test.ts`): keccak-256
 against published digests, namehash against the ENSIP-1 reference vectors,
 and the three `eth_call` selectors against the canonical signatures. If any
 of these regress, every lookup would silently return null — the tests are
